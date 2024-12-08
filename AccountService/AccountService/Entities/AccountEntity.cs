@@ -23,4 +23,10 @@ public class AccountEntity
 
     [BsonElement("salt"), BsonRepresentation(BsonType.String)]
     public string? Salt { get; set; }
+
+    [BsonElement("password_reset_key"), BsonRepresentation(BsonType.String)]
+    public string? PassowordResetKey { get; set; }
+
+    [BsonElement("password_reset_date"), BsonRepresentation(BsonType.DateTime)]
+    public DateTime? PasswordResetDateTime { get; set; }
 }

@@ -11,8 +11,8 @@ public static class ProjectConfiguration
         services.Configure<KafkaInfrastructure>(configuration.GetSection(nameof(KafkaInfrastructure)));
         services.Configure<SmtpInfrastructure>(configuration.GetSection(nameof(SmtpInfrastructure)));
 
-        services.AddScoped<IKafkaInfrastructure, KafkaInfrastructure>();
-        services.AddScoped<ISmtpInfrastructure, SmtpInfrastructure>();
+        services.AddTransient<IKafkaInfrastructure, KafkaInfrastructure>();
+        services.AddTransient<ISmtpInfrastructure, SmtpInfrastructure>();
 
         return services;
     }

@@ -59,7 +59,7 @@ public class AccountService : IAccountService
 
         await _mongoCollection.InsertOneAsync(account);
 
-        await _kafkaService.PublishMessageToTopicAsync(JsonSerializer.Serialize(new
+        await _kafkaService.PublishEmailConfirmationEventAsync(JsonSerializer.Serialize(new
         {
             Email = account.Email,
             EmailToken = account.EmailToken,
@@ -69,27 +69,80 @@ public class AccountService : IAccountService
         return true;
     }
 
-    public async Task<Result<bool>> ReSendEmailConfirmationToken(string email)
+    public async Task<Result<bool>> ReSendEmailConfirmationTokenAsync(string email)
     {
-        var findResult = await _mongoCollection.Find(x => 
+        var findResult = await _mongoCollection.Find(x =>
             string.Equals(x.Email, email) && !x.EmailIsConfirmed).FirstOrDefaultAsync();
 
         if (findResult is null)
             return Result.Fail("E-mail already confirmmed or not found");
 
+        var newEmailToken = Guid.NewGuid().ToString();
+
         UpdateDefinition<AccountEntity> updateDefinition = new UpdateDefinitionBuilder<AccountEntity>()
-            .Set(x => x.EmailToken, Guid.NewGuid().ToString());
+            .Set(x => x.EmailToken, newEmailToken);
 
         FilterDefinition<AccountEntity> filterDefinition = new FilterDefinitionBuilder<AccountEntity>()
             .Where(x => x.Email == email);
 
         var updateResult = await _mongoCollection.FindOneAndUpdateAsync(filterDefinition, updateDefinition);
 
-        await _kafkaService.PublishMessageToTopicAsync(JsonSerializer.Serialize(new
+        await _kafkaService.PublishEmailConfirmationEventAsync(JsonSerializer.Serialize(new
         {
             Email = updateResult.Email,
-            EmailToken = updateResult.EmailToken,
+            EmailToken = newEmailToken,
             Id = updateResult.Id
+        }));
+
+        return true;
+    }
+
+    public async Task<Result<bool>> ResetPasswordAsync(PasswordResetRequest request)
+    {
+        var findResult = await _mongoCollection.Find(x =>
+            string.Equals(x.Email, request.Email) && string.Equals(x.PassowordResetKey, request.PasswordResetKey))
+            .FirstOrDefaultAsync();
+
+        var isResetKeyValid = (DateTime.Now - findResult.PasswordResetDateTime).Value.Hours < 2;
+
+        if (findResult is null || !isResetKeyValid)
+            return Result.Fail("Email not found or reset password key not valid");
+
+        var userCredentials = SaltHandler.CreateUserCredentials(request.NewPassword);
+
+        UpdateDefinition<AccountEntity> updateDefinition = new UpdateDefinitionBuilder<AccountEntity>()
+            .Set(x => x.Password, userCredentials.EncryptedPassword)
+            .Set( x=> x.Salt, userCredentials.EncryptedSalt);
+
+        FilterDefinition<AccountEntity> filterDefinition = new FilterDefinitionBuilder<AccountEntity>()
+            .Where(x => x.Email == request.Email);
+
+        var updateResult = await _mongoCollection.FindOneAndUpdateAsync(filterDefinition, updateDefinition);
+
+        return true;
+    }
+
+    public async Task<Result<bool>> SendEmailForPassowordResetAsync(string email)
+    {
+        var findResult = await _mongoCollection.Find(x =>
+            string.Equals(x.Email, email)).FirstOrDefaultAsync();
+
+        if (findResult is null)
+            return Result.Fail("E-mail already confirmmed or not found");
+
+        UpdateDefinition<AccountEntity> updateDefinition = new UpdateDefinitionBuilder<AccountEntity>()
+            .Set(x => x.PassowordResetKey, Guid.NewGuid().ToString())
+            .Set(x => x.PasswordResetDateTime, DateTime.Now);
+
+        FilterDefinition<AccountEntity> filterDefinition = new FilterDefinitionBuilder<AccountEntity>()
+            .Where(x => x.Email == email);
+
+        var updateResult = await _mongoCollection.FindOneAndUpdateAsync(filterDefinition, updateDefinition);
+
+        await _kafkaService.PublishPasswordResetEventAsync(JsonSerializer.Serialize(new
+        {
+            Email = updateResult.Email,
+            PassowordResetKey = updateResult.PassowordResetKey,
         }));
 
         return true;

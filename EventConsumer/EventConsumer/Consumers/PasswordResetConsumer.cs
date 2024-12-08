@@ -4,27 +4,30 @@ using EventConsumer.Entities;
 using EventConsumer.Infrasctructure.Kafka;
 using EventConsumer.Infrasctructure.SMTP;
 using Microsoft.Extensions.Options;
-using System.Net;
 using System.Text.Json;
 
-namespace EventConsumer;
+namespace EventConsumer.Consumers;
 
-public class AccountServiceConsumer : BackgroundService
+public class PasswordResetConsumer : BackgroundService
 {
     private readonly IKafkaInfrastructure _kafkaInfrastructure;
     private readonly ISmtpInfrastructure _smtpInfrastructure;
 
-    public AccountServiceConsumer(IOptions<KafkaInfrastructure> optKafka, 
+    public PasswordResetConsumer(IOptions<KafkaInfrastructure> optKafka,
                                   IOptions<SmtpInfrastructure> optSmtp)
     {
         _kafkaInfrastructure = optKafka.Value;
         _smtpInfrastructure = optSmtp.Value;
     }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Console.WriteLine("Starting application...");
+        var topic = _kafkaInfrastructure.Topics.GetValueOrDefault("PasswordReset");
 
-        while(!stoppingToken.IsCancellationRequested)
+        if (string.IsNullOrWhiteSpace(topic))
+            throw new ArgumentNullException($"PasswordReset topic not found");
+
+        while (!stoppingToken.IsCancellationRequested)
         {
             var config = new ConsumerConfig
             {
@@ -35,7 +38,7 @@ public class AccountServiceConsumer : BackgroundService
 
             using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
 
-            consumer.Subscribe(_kafkaInfrastructure.TopicName);
+            consumer.Subscribe(topic);
             CancellationTokenSource cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, e) =>
             {
@@ -48,11 +51,11 @@ public class AccountServiceConsumer : BackgroundService
                 while (true)
                 {
                     var consumerResult = consumer.Consume(cts.Token);
-                    AccountEntity credentials = JsonSerializer.Deserialize<AccountEntity>(consumerResult.Message.Value);
+                    ResetPasswordEvent eventValue = JsonSerializer.Deserialize<ResetPasswordEvent>(consumerResult.Message.Value);
 
-                    Console.WriteLine($"Sending email to: {credentials.Email}");
+                    Console.WriteLine($"Sending email to: {eventValue.Email}");
 
-                    await _smtpInfrastructure.SendEmailAsync(credentials);
+                    await _smtpInfrastructure.SendPasswordResetAsync(eventValue);
                 }
             }
             catch (Exception ex)
