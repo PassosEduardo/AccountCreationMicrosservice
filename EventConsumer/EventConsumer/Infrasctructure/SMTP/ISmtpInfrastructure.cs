@@ -9,5 +9,6 @@ public interface ISmtpInfrastructure
     string Password { get; }
     string From { get; set;  }
 
-    Task SendEmailAsync(AccountEntity account);
+    Task SendEmailConfirmationAsync(ConfirmEmailEvent account);
+    Task SendPasswordResetAsync(ResetPasswordEvent eventValue);
 }

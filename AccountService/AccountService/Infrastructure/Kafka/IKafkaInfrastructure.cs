@@ -3,5 +3,5 @@
 public interface IKafkaInfrastructure
 {
     string BootstrapServer { get; set; }
-    string TopicName { get; set; }
+    Dictionary<string, string> Topics { get; set; }
 }

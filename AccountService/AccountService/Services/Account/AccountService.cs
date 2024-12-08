@@ -59,7 +59,7 @@ public class AccountService : IAccountService
 
         await _mongoCollection.InsertOneAsync(account);
 
-        await _kafkaService.PublishMessageToTopicAsync(JsonSerializer.Serialize(new
+        await _kafkaService.PublishEmailConfirmationEventAsync(JsonSerializer.Serialize(new
         {
             Email = account.Email,
             EmailToken = account.EmailToken,
@@ -71,25 +71,53 @@ public class AccountService : IAccountService
 
     public async Task<Result<bool>> ReSendEmailConfirmationToken(string email)
     {
-        var findResult = await _mongoCollection.Find(x => 
+        var findResult = await _mongoCollection.Find(x =>
             string.Equals(x.Email, email) && !x.EmailIsConfirmed).FirstOrDefaultAsync();
 
         if (findResult is null)
             return Result.Fail("E-mail already confirmmed or not found");
 
+        var newEmailToken = Guid.NewGuid().ToString();
+
         UpdateDefinition<AccountEntity> updateDefinition = new UpdateDefinitionBuilder<AccountEntity>()
-            .Set(x => x.EmailToken, Guid.NewGuid().ToString());
+            .Set(x => x.EmailToken, newEmailToken);
 
         FilterDefinition<AccountEntity> filterDefinition = new FilterDefinitionBuilder<AccountEntity>()
             .Where(x => x.Email == email);
 
         var updateResult = await _mongoCollection.FindOneAndUpdateAsync(filterDefinition, updateDefinition);
 
-        await _kafkaService.PublishMessageToTopicAsync(JsonSerializer.Serialize(new
+        await _kafkaService.PublishEmailConfirmationEventAsync(JsonSerializer.Serialize(new
         {
             Email = updateResult.Email,
-            EmailToken = updateResult.EmailToken,
+            EmailToken = newEmailToken,
             Id = updateResult.Id
+        }));
+
+        return true;
+    }
+
+    public async Task<Result<bool>> SendEmailForPassowordReset(string email)
+    {
+        var findResult = await _mongoCollection.Find(x =>
+            string.Equals(x.Email, email)).FirstOrDefaultAsync();
+
+        if (findResult is null)
+            return Result.Fail("E-mail already confirmmed or not found");
+
+        UpdateDefinition<AccountEntity> updateDefinition = new UpdateDefinitionBuilder<AccountEntity>()
+            .Set(x => x.PassowordResetKey, Guid.NewGuid().ToString())
+            .Set(x => x.PasswordResetDateTime, DateTime.Now);
+
+        FilterDefinition<AccountEntity> filterDefinition = new FilterDefinitionBuilder<AccountEntity>()
+            .Where(x => x.Email == email);
+
+        var updateResult = await _mongoCollection.FindOneAndUpdateAsync(filterDefinition, updateDefinition);
+
+        await _kafkaService.PublishPasswordResetEventAsync(JsonSerializer.Serialize(new
+        {
+            Email = updateResult.Email,
+            PassowordResetKey = updateResult.PassowordResetKey,
         }));
 
         return true;

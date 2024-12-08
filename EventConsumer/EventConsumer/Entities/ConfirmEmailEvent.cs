@@ -1,6 +1,6 @@
 ﻿namespace EventConsumer.Entities;
 
-public class AccountEntity
+public class ConfirmEmailEvent
 {
     public string Id { get; set; }
     public string Email { get; set; }
