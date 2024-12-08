@@ -1,6 +1,7 @@
 ﻿using AccountService.Requests;
 using AccountService.Services.Account;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace AccountService.Controllers;
 
@@ -15,7 +16,7 @@ public class AccountController : ControllerBase
     }
 
     /// <summary>
-    /// Endpoint for creating an account
+    /// Creates an account
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
@@ -32,7 +33,7 @@ public class AccountController : ControllerBase
     }
 
     /// <summary>
-    /// Endpoint for confirming the email of account.
+    /// Confirms the email of account.
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
@@ -48,14 +49,14 @@ public class AccountController : ControllerBase
     }
 
     /// <summary>
-    /// Endpoint to send another confirmation token of the e-mail.
+    /// Sends a new confirmation token of the e-mail.
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
     [HttpPut("{email}/confirmation-token")]
-    public async Task<ActionResult<bool>> ReSendEmailConfirmationToken([FromRoute] string email)
+    public async Task<ActionResult<bool>> ReSendEmailConfirmationTokenAsync([FromRoute] string email)
     {
-        var result = await _accountService.ReSendEmailConfirmationToken(email);
+        var result = await _accountService.ReSendEmailConfirmationTokenAsync(email);
 
         if (result.IsFailed)
             return BadRequest(result.Errors);
@@ -64,14 +65,35 @@ public class AccountController : ControllerBase
     }
 
     /// <summary>
-    /// Endpoint to reset password
+    /// Sends an e-mail for password reset
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    [HttpPost("{email}/forgot-password")]
+    public async Task<ActionResult<bool>> SendEmailForPassowordResetAsync([FromRoute] string email)
+    {
+        var result = await _accountService.SendEmailForPassowordResetAsync(email);
+
+        if (result.IsFailed)
+            return BadRequest(result.Errors);
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Resets password
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
     [HttpPut("{email}/password-reset")]
-    public async Task<ActionResult<bool>> SendEmailForPassowordReset([FromRoute] string email)
+    public async Task<ActionResult<bool>> ResetPasswordAsync([FromBody] PasswordResetRequest request,
+                                                             [FromQuery(Name = "key")] [Required] string passwordResetKey,
+                                                             [FromRoute] string email)
     {
-        var result = await _accountService.SendEmailForPassowordReset(email);
+        request.Email = email;
+        request.PasswordResetKey = passwordResetKey;
+
+        var result = await _accountService.ResetPasswordAsync(request);
 
         if (result.IsFailed)
             return BadRequest(result.Errors);

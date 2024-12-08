@@ -69,7 +69,7 @@ public class AccountService : IAccountService
         return true;
     }
 
-    public async Task<Result<bool>> ReSendEmailConfirmationToken(string email)
+    public async Task<Result<bool>> ReSendEmailConfirmationTokenAsync(string email)
     {
         var findResult = await _mongoCollection.Find(x =>
             string.Equals(x.Email, email) && !x.EmailIsConfirmed).FirstOrDefaultAsync();
@@ -97,7 +97,32 @@ public class AccountService : IAccountService
         return true;
     }
 
-    public async Task<Result<bool>> SendEmailForPassowordReset(string email)
+    public async Task<Result<bool>> ResetPasswordAsync(PasswordResetRequest request)
+    {
+        var findResult = await _mongoCollection.Find(x =>
+            string.Equals(x.Email, request.Email) && string.Equals(x.PassowordResetKey, request.PasswordResetKey))
+            .FirstOrDefaultAsync();
+
+        var isResetKeyValid = (DateTime.Now - findResult.PasswordResetDateTime).Value.Hours < 2;
+
+        if (findResult is null || !isResetKeyValid)
+            return Result.Fail("Email not found or reset password key not valid");
+
+        var userCredentials = SaltHandler.CreateUserCredentials(request.NewPassword);
+
+        UpdateDefinition<AccountEntity> updateDefinition = new UpdateDefinitionBuilder<AccountEntity>()
+            .Set(x => x.Password, userCredentials.EncryptedPassword)
+            .Set( x=> x.Salt, userCredentials.EncryptedSalt);
+
+        FilterDefinition<AccountEntity> filterDefinition = new FilterDefinitionBuilder<AccountEntity>()
+            .Where(x => x.Email == request.Email);
+
+        var updateResult = await _mongoCollection.FindOneAndUpdateAsync(filterDefinition, updateDefinition);
+
+        return true;
+    }
+
+    public async Task<Result<bool>> SendEmailForPassowordResetAsync(string email)
     {
         var findResult = await _mongoCollection.Find(x =>
             string.Equals(x.Email, email)).FirstOrDefaultAsync();

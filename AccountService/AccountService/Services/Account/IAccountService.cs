@@ -9,6 +9,7 @@ public interface IAccountService
 {
     Task<Result<bool>> CreateAccountAsync(CreateAccountRequest request);
     Task<Result<bool>> ConfirmEmailAsync(string accountId, string confirmationToken);
-    Task<Result<bool>> ReSendEmailConfirmationToken(string email);
-    Task<Result<bool>> SendEmailForPassowordReset(string email);
+    Task<Result<bool>> ReSendEmailConfirmationTokenAsync(string email);
+    Task<Result<bool>> SendEmailForPassowordResetAsync(string email);
+    Task<Result<bool>> ResetPasswordAsync(PasswordResetRequest request);
 }
