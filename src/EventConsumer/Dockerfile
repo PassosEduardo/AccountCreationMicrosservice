@@ -9,10 +9,10 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["EventConsumer/EventConsumer.csproj", "EventConsumer/"]
-RUN dotnet restore "./EventConsumer/EventConsumer.csproj"
+COPY ["src/EventConsumer/EventConsumer.csproj", "src/EventConsumer/"]
+RUN dotnet restore "./src/EventConsumer/EventConsumer.csproj"
 COPY . .
-WORKDIR "/src/EventConsumer"
+WORKDIR "/src/src/EventConsumer"
 RUN dotnet build "./EventConsumer.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish

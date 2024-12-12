@@ -28,6 +28,9 @@ public class Program
 
         var app = builder.Build();
 
+        Console.WriteLine("Starting application...");
+        Console.WriteLine($"{app.Environment.GetType().Name}: {app.Environment.EnvironmentName}");
+
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {
